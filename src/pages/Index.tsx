@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,34 @@ const logsData = [
 export default function Index() {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedPeriod]);
+
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`https://functions.poehali.dev/bae07a5f-4845-480b-988f-870f0fc4c801?period=${selectedPeriod}`);
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+    setLoading(false);
+  };
+
+  const activityData = stats?.activity || [];
+  const contentTypeData = stats?.content_types?.map((item: any) => ({
+    name: item.name === 'video' ? 'Видео' : item.name === 'photo' ? 'Фото' : item.name === 'story' ? 'Истории' : 'Анализ',
+    value: item.value,
+    color: item.name === 'video' ? '#0EA5E9' : item.name === 'photo' ? '#8E9196' : item.name === 'story' ? '#1A1F2C' : '#F1F0FB'
+  })) || [];
+  const usersData = stats?.users || [];
+  const logsData = stats?.logs || [];
+  const moderationData = stats?.moderation || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,9 +162,9 @@ export default function Index() {
                 <Icon name="Activity" className="text-primary" size={20} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">2,310</div>
+                <div className="text-3xl font-bold">{loading ? '...' : stats?.summary?.total_requests || 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium">+12.5%</span> от предыдущей недели
+                  За выбранный период
                 </p>
               </CardContent>
             </Card>
@@ -147,9 +175,9 @@ export default function Index() {
                 <Icon name="Users" className="text-primary" size={20} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">782</div>
+                <div className="text-3xl font-bold">{loading ? '...' : stats?.summary?.active_users || 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium">+8.3%</span> от предыдущей недели
+                  За выбранный период
                 </p>
               </CardContent>
             </Card>
@@ -160,9 +188,9 @@ export default function Index() {
                 <Icon name="Download" className="text-primary" size={20} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">1,451</div>
+                <div className="text-3xl font-bold">{loading ? '...' : stats?.summary?.total_downloads || 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium">+15.2%</span> от предыдущей недели
+                  За выбранный период
                 </p>
               </CardContent>
             </Card>
@@ -173,9 +201,9 @@ export default function Index() {
                 <Icon name="Shield" className="text-destructive" size={20} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">23</div>
+                <div className="text-3xl font-bold">{loading ? '...' : stats?.summary?.blocked_users || 0}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-red-600 font-medium">+4</span> за последние 24 часа
+                  Всего пользователей
                 </p>
               </CardContent>
             </Card>
@@ -295,10 +323,10 @@ export default function Index() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {usersData.map((user) => (
+                      {usersData.map((user: any) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.id}</TableCell>
-                          <TableCell>{user.username}</TableCell>
+                          <TableCell>@{user.username || 'unknown'}</TableCell>
                           <TableCell>{user.requests}</TableCell>
                           <TableCell>
                             <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
@@ -312,7 +340,7 @@ export default function Index() {
                               <Badge variant="outline">Free</Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{user.lastActive}</TableCell>
+                          <TableCell className="text-muted-foreground">{new Date(user.last_active).toLocaleString('ru-RU')}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Button variant="ghost" size="sm">
@@ -349,10 +377,10 @@ export default function Index() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {logsData.map((log, index) => (
+                      {logsData.map((log: any, index: number) => (
                         <TableRow key={index}>
-                          <TableCell className="font-mono text-sm">{log.time}</TableCell>
-                          <TableCell>{log.user}</TableCell>
+                          <TableCell className="font-mono text-sm">{new Date(log.time).toLocaleTimeString('ru-RU')}</TableCell>
+                          <TableCell>@{log.user || 'unknown'}</TableCell>
                           <TableCell>{log.action}</TableCell>
                           <TableCell>
                             <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
@@ -376,38 +404,31 @@ export default function Index() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Icon name="AlertTriangle" className="text-amber-500" size={24} />
-                        <div>
-                          <p className="font-medium">Подозрительная активность обнаружена</p>
-                          <p className="text-sm text-muted-foreground">@user_456 - необычный паттерн запросов</p>
+                    {moderationData.length > 0 ? (
+                      moderationData.map((alert: any) => (
+                        <div key={alert.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Icon name="AlertTriangle" className="text-amber-500" size={24} />
+                            <div>
+                              <p className="font-medium">{alert.alert_type}</p>
+                              <p className="text-sm text-muted-foreground">@{alert.username} - {alert.description}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline">Проверить</Button>
                         </div>
-                      </div>
-                      <Button variant="outline">Проверить</Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Icon name="Bot" className="text-red-500" size={24} />
-                        <div>
-                          <p className="font-medium">Возможный бот-аккаунт</p>
-                          <p className="text-sm text-muted-foreground">@spam_bot_123 - автоматические запросы</p>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Icon name="CheckCircle2" className="text-green-500" size={24} />
+                          <div>
+                            <p className="font-medium">Система работает нормально</p>
+                            <p className="text-sm text-muted-foreground">Подозрительной активности не обнаружено</p>
+                          </div>
                         </div>
+                        <Badge variant="outline">Активно</Badge>
                       </div>
-                      <Button variant="destructive">Заблокировать</Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Icon name="CheckCircle2" className="text-green-500" size={24} />
-                        <div>
-                          <p className="font-medium">Система работает нормально</p>
-                          <p className="text-sm text-muted-foreground">Подозрительной активности не обнаружено</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline">Активно</Badge>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

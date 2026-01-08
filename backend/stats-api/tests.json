@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "name": "Get statistics",
+      "method": "GET",
+      "path": "/?period=week",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "summary": "object",
+        "activity": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
